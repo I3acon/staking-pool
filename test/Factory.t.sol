@@ -6,10 +6,37 @@ import "../src/Factory.sol";
 
 contract FactoryTest is Test {
     Factory public factory;
+    uint256 goerliFork;
+    string GOERLI_URL = vm.envString("GOERLI_URL");
+
 
     function setUp() public {
         factory = new Factory();
+        goerliFork = vm.createFork(GOERLI_URL);
     }
+
+    function testFork()public{
+        vm.selectFork(goerliFork);
+        emit log_uint(block.chainid);
+        assertEq(vm.activeFork(), goerliFork); 
+    }
+
+    function testCreateToken() public {
+        vm.startPrank(address(0x01))
+        bytes32 salt = factory.stringToBytes32(
+            "hello this is sound from dekwat"
+        );
+        address launchpad = 0xff50ed3d0ec03aC01D4C79aAd74928BFF48a7b2b;
+        factory.createToken(salt, launchpad);
+        address token = factory.tokens(1);
+        bytes memory bytecode = factory.getBytecode(launchpad, token);
+        address predicted = factory.getAddress(bytecode, salt);
+        assertEq(predicted, token);
+    }
+
+    // function testBalance()public {
+    //     vm.Prank(alice);
+    // }
 
     // function testStrToBytes(string memory _str) public view returns (bytes32) {
     //     _str = "hello this is sound from dekwat";
