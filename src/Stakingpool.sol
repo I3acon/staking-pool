@@ -9,29 +9,27 @@ import "./Xedon.sol";
 contract Stakingpool is AccessControl {
     mapping(address => bool) private stakers;
     mapping(address => uint256) public balances;
+    mapping(uint256 => uint256) public tokenid_balances;
+    uint256 public prev_balances = 0;
     bool public isUpload = false;
     bool public isDeposit = false;
-    uint256 pool_balances;
 
     IETHlaunchpad internal launchpad;
     Xedon internal token;
-    bytes internal pubkey;
-    bytes internal withdrawal_credentials;
-    bytes internal signature;
-    bytes32 internal deposit_data_root;
+    bytes public pubkey;
+    bytes public withdrawal_credentials;
+    bytes public signature;
+    bytes32 public deposit_data_root;
 
     event Deposit(address indexed account, uint256 amount);
     event Withdraw(address indexed account, uint256 amount);
 
-    constructor(
-        address _launchpad,
-        address _token
-    ) {
+    constructor(address _launchpad, address _token) {
         console.log(_launchpad);
-        console.log(_token);
+        // console.log(_token);
         require(_launchpad != address(0), "Invalid launchpad address");
         require(_token != address(0), "Invalid token address");
-         _setupRole(DEFAULT_ADMIN_ROLE, tx.origin);
+        _setupRole(DEFAULT_ADMIN_ROLE, tx.origin);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         // todo check pubkey , signature , deposit_data_root
 
@@ -39,18 +37,26 @@ contract Stakingpool is AccessControl {
         token = Xedon(_token);
     }
 
-    function uploadDepositData( bytes memory _pubkey,
-        bytes memory _withdrawal_credentials,
-        bytes memory _signature,
-        bytes32 _deposit_data_root)public onlyRole(DEFAULT_ADMIN_ROLE)
-        {
-        require(keccak256(_toWithdrawalCred(address(this))) == keccak256(_withdrawal_credentials),"Invalid withdrawal credentials");
+    function uploadDepositData(
+        bytes calldata _pubkey,
+        bytes calldata _withdrawal_credentials,
+        bytes calldata _signature,
+        bytes32 _deposit_data_root
+    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        // console.log(address(this));
+        bytes memory credFromAdr = _toWithdrawalCred(address(this));
+        // console.log(string(credFromAdr));
+        // console.log(string(_withdrawal_credentials));
+        require(
+            keccak256(credFromAdr) == keccak256(_withdrawal_credentials),
+            "Invalid withdrawal credentials"
+        );
         pubkey = _pubkey;
         withdrawal_credentials = _withdrawal_credentials;
         signature = _signature;
         deposit_data_root = _deposit_data_root;
         isUpload = true;
-        }
+    }
 
     function stake() public payable {
         require(msg.value == 8 ether, "Amount must be equal to 8 ETH");
@@ -58,7 +64,7 @@ contract Stakingpool is AccessControl {
             address(this).balance + msg.value <= 32 ether,
             "Contract balance cannot exceed 32 ETH"
         );
-        require(!stakers[msg.sender], "Already stake");
+        // require(!stakers[msg.sender], "Already stake");
         require(isUpload);
 
         balances[msg.sender] += msg.value;
@@ -71,10 +77,8 @@ contract Stakingpool is AccessControl {
         emit Deposit(msg.sender, msg.value);
     }
 
-    function _toWithdrawalCred(
-        address _withdrawal
-    ) private pure returns (bytes memory) {
-        uint uintFromAddress = uint256(uint160(_withdrawal));
+    function _toWithdrawalCred(address a) public pure returns (bytes memory) {
+        uint uintFromAddress = uint256(uint160(a));
         bytes memory withdralDesired = abi.encodePacked(
             uintFromAddress +
                 0x0100000000000000000000000000000000000000000000000000000000000000
@@ -82,32 +86,25 @@ contract Stakingpool is AccessControl {
         return withdralDesired;
     }
 
-    function withdraw() public {
-        require(token.balanceOf(msg.sender) == 1);
+    function withdraw(uint256 _tokenid) public {
+        require(msg.sender == token.ownerOf(_tokenid), "Not owner of token");
         require(isDeposit, "Not deposit yet");
-        address staker1 = token.ownerOf(1);
-        address staker2 = token.ownerOf(2);
-        address staker3 = token.ownerOf(3);
-        address staker4 = token.ownerOf(4);
-        uint256 amount = address(this).balance / 4;
-
-        payable(staker1).transfer(amount);
-        payable(staker2).transfer(amount);
-        payable(staker3).transfer(amount);
-        payable(staker4).transfer(amount);
-
-        emit Withdraw(staker1, amount);
-        emit Withdraw(staker2, amount);
-        emit Withdraw(staker3, amount);
-        emit Withdraw(staker4, amount);
-    }
-
-    function getUserBalance(address _adr) public view returns (uint256) {
-        return balances[_adr];
+        uint256 pool_amount = address(this).balance;
+        uint256 left_over = pool_amount - prev_balances;
+        uint256 share = (left_over - 1) / 4;
+        tokenid_balances[1] += share;
+        tokenid_balances[2] += share;
+        tokenid_balances[3] += share;
+        tokenid_balances[4] += share;
+        uint256 user_share = tokenid_balances[_tokenid];
+        payable(token.ownerOf(_tokenid)).transfer(user_share);
+        tokenid_balances[_tokenid] = 0;
+        prev_balances = address(this).balance;
+        emit Withdraw(token.ownerOf(_tokenid), user_share);
     }
 
     function depositToLaunchpad() public {
-        launchpad.deposit(
+        launchpad.deposit{value: 32 ether}(
             pubkey,
             withdrawal_credentials,
             signature,
@@ -120,4 +117,8 @@ contract Stakingpool is AccessControl {
     function rugpool() public {
         payable(msg.sender).transfer(address(this).balance);
     }
+
+    receive() external payable {}
+
+    fallback() external payable {}
 }
