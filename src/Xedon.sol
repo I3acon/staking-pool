@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 
 contract Xedon is ERC721A, AccessControl {
-    bytes32 public constant STAKER = keccak256("STAKER");
+    bytes32 public constant FACTORY = keccak256("FACTORY");
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIds;
 
@@ -16,20 +16,18 @@ contract Xedon is ERC721A, AccessControl {
         _tokenIds.increment();
     }
 
-    function mint(address _to) public onlyRole(STAKER) {
+    function mint(address _to) public onlyRole(FACTORY) {
         uint256 tokenid = _tokenIds.current();
-        require(ownerOf(tokenid) != msg.sender, "Already minted");
         _mint(_to, tokenid);
-        _tokenIds.increment();
     }
 
-    function burn(uint256 _tokenId) public onlyRole(STAKER) {
+    function burn(uint256 _tokenId) public {
         require(ownerOf(_tokenId) == msg.sender, "Not owner");
         _burn(_tokenId);
     }
 
     function giveAccess(address _to) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        grantRole(STAKER, _to);
+        grantRole(FACTORY, _to);
     }
 
     function ownerOf(uint256 _tokenId) public view override returns (address) {

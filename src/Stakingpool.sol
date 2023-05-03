@@ -60,10 +60,10 @@ contract Stakingpool is AccessControl {
 
     function stake() public payable {
         require(msg.value == 8 ether, "Amount must be equal to 8 ETH");
-        require(
-            address(this).balance + msg.value <= 32 ether,
-            "Contract balance cannot exceed 32 ETH"
-        );
+        // require(
+        //     address(this).balance + msg.value <= 32 ether,
+        //     "Contract balance cannot exceed 32 ETH"
+        // );
         // require(!stakers[msg.sender], "Already stake");
         require(isUpload);
 
