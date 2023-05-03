@@ -21,10 +21,9 @@ contract Factory {
     function createPool() public {
         Xedon token = new Xedon();
         console.log(launchpad);
-        Stakingpool pool = new Stakingpool(launchpad,address(token));
+        Stakingpool pool = new Stakingpool(launchpad, address(token));
         uint256 poolId = _poolIds.current();
         emit PoolCreated(poolId, address(pool), address(token));
         _poolIds.increment();
     }
-    
 }

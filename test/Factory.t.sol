@@ -36,10 +36,12 @@ contract FactoryTest is Test {
         factory.createPool();
     }
 
-    function testUploadData() public {
+    function testStakingpool() public {
         vm.record();
         goerliFork = vm.createFork(GOERLI_URL);
         vm.selectFork(goerliFork);
+
+        // alice create token and pool and stake
         startHoax(alice);
         token = new Xedon();
         stakingpool = new Stakingpool(
@@ -65,42 +67,51 @@ contract FactoryTest is Test {
         assertEq(token.ownerOf(1), alice);
         vm.stopPrank();
 
-        hoax(bob);
+        // bob stake
+        startHoax(bob);
         stakingpool.stake{value: 8 ether}();
         assertEq(address(stakingpool).balance, 16 ether);
         assertEq(token.ownerOf(2), bob);
+        vm.stopPrank();
 
+        // carol stake
         hoax(carol);
         stakingpool.stake{value: 8 ether}();
         assertEq(address(stakingpool).balance, 24 ether);
         assertEq(token.ownerOf(3), carol);
 
-        hoax(david);
+        // david stake and withdraw
+        startHoax(david);
         stakingpool.stake{value: 8 ether}();
         assertEq(token.ownerOf(4), david);
+
+        //assume reward is 1 ether
         assertEq(address(stakingpool).balance, 0);
+        payable(address(stakingpool)).transfer(1 ether);
+        assertEq(address(stakingpool).balance, 1 ether);
+
+        stakingpool.withdraw(4);
+        assertEq(address(stakingpool).balance, 750000000000000000);
+        stakingpool.withdraw(4);
+        assertEq(address(stakingpool).balance, 750000000000000000);
+        vm.stopPrank();
+
+        // carol withdraw
+        vm.startPrank(carol);
+        stakingpool.withdraw(3);
+        assertEq(address(stakingpool).balance, 500000000000000000);
+        vm.stopPrank();
+
+        // bob withdraw
+        vm.startPrank(bob);
+        stakingpool.withdraw(2);
+        assertEq(address(stakingpool).balance, 250000000000000000);
+        vm.stopPrank();
+
+        // alice withdraw
+        vm.startPrank(alice);
+        stakingpool.withdraw(1);
+        assertEq(address(stakingpool).balance, 0);
+        vm.stopPrank();
     }
-
-    // function testStake() public {
-    //     // startHoax(alice);
-    //     stakingpool.stake{value: 8 ether}();
-    // }
-
-    // function testStrToBytes(string memory _str) public view returns (bytes32) {
-    //     _str = "hello this is sound from dekwat";
-    //     bytes32 result = factory.stringToBytes32(_str);
-    //     return result;
-    // }
-
-    // function testCreateTokenReturnPoolAdr() public {
-    //     bytes32 salt = factory.stringToBytes32(
-    //         "hello this is sound from dekwat"
-    //     );
-    //     address launchpad = 0xff50ed3d0ec03aC01D4C79aAd74928BFF48a7b2b;
-    //     factory.createToken(salt, launchpad);
-    //     address token = factory.tokens(1);
-    //     bytes memory bytecode = factory.getBytecode(launchpad, token);
-    //     address predicted = factory.getAddress(bytecode, salt);
-    //     factory.toWithdrawalCred(predicted);
-    // }
 }

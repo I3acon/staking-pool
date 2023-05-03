@@ -26,13 +26,10 @@ contract Stakingpool is AccessControl {
 
     constructor(address _launchpad, address _token) {
         console.log(_launchpad);
-        // console.log(_token);
         require(_launchpad != address(0), "Invalid launchpad address");
         require(_token != address(0), "Invalid token address");
         _setupRole(DEFAULT_ADMIN_ROLE, tx.origin);
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        // todo check pubkey , signature , deposit_data_root
-
         launchpad = IETHlaunchpad(_launchpad);
         token = Xedon(_token);
     }
@@ -43,10 +40,7 @@ contract Stakingpool is AccessControl {
         bytes calldata _signature,
         bytes32 _deposit_data_root
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        // console.log(address(this));
         bytes memory credFromAdr = _toWithdrawalCred(address(this));
-        // console.log(string(credFromAdr));
-        // console.log(string(_withdrawal_credentials));
         require(
             keccak256(credFromAdr) == keccak256(_withdrawal_credentials),
             "Invalid withdrawal credentials"
@@ -60,13 +54,8 @@ contract Stakingpool is AccessControl {
 
     function stake() public payable {
         require(msg.value == 8 ether, "Amount must be equal to 8 ETH");
-        // require(
-        //     address(this).balance + msg.value <= 32 ether,
-        //     "Contract balance cannot exceed 32 ETH"
-        // );
-        // require(!stakers[msg.sender], "Already stake");
         require(isUpload);
-
+        require(!isDeposit, "Already deposit");
         balances[msg.sender] += msg.value;
         stakers[msg.sender] = true;
         token.mint(msg.sender);
@@ -91,7 +80,7 @@ contract Stakingpool is AccessControl {
         require(isDeposit, "Not deposit yet");
         uint256 pool_amount = address(this).balance;
         uint256 left_over = pool_amount - prev_balances;
-        uint256 share = (left_over - 1) / 4;
+        uint256 share = (left_over) / 4;
         tokenid_balances[1] += share;
         tokenid_balances[2] += share;
         tokenid_balances[3] += share;
